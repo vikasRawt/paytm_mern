@@ -7,7 +7,7 @@ const dbSchema = mongoose.Schema({
         required:true,
         unique:true
     },
-    userName:{
+    username:{
         type:String,
         required:true,
         unique:true
@@ -19,14 +19,13 @@ const dbSchema = mongoose.Schema({
     },
     password:{
         type:String,
-        required:true,
-        unique:true
+        required:true
     }
 },{timestamps: true})
 
 
-const mongoSchema = mongoose.model("user", dbSchema);
+const User = mongoose.model("user", dbSchema);
 
 module.exports = {
-    mongoSchema
+    User
 };
