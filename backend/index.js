@@ -7,11 +7,11 @@ const mainRoutes = require("./routes/routes.js");
 const cors = require("cors");
 
 dbConnect();
-
+const PORT = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 app.use("/api/v1", mainRoutes); //all routes of mainRoutes will go through the /api/v1
 
-app.listen(3000, () => {
+app.listen(PORT, () => {
   console.log(`server started`);
 });

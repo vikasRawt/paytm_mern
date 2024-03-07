@@ -1,6 +1,6 @@
 const express = require("express");
 const zod = require("zod");
-const { User } = require("../dbConfig/mongoDb.js");
+const {User, Account}  = require("../dbConfig/mongoDb.js");
 const jwt = require("jsonwebtoken");
 const JWT_Token_SECRET = require("../confiig.js");
 const authMiddleware = require("../middleware.js");
@@ -8,7 +8,7 @@ const authMiddleware = require("../middleware.js");
 const userRouter = express.Router();
 
 const signUpSchema = zod.object({
-  username: zod.string(),
+  username: zod.string() ,
   firstName: zod.string(),
   lastName: zod.string(),
   password: zod.string(),
@@ -24,15 +24,20 @@ userRouter.post("/signup", async (req, res) => {
     });
   }
 
+  if (!req.body.username) {
+    return res.json({
+        message: "Username is required",
+    });
+}
   const existingUser = await User.findOne({
     username: req.body.username,
   });
 
   if (existingUser) {
-    res.send(409).json({
-      message: "user already exists",
+    return res.status(409).json({
+        message: "user already exists",
     });
-  }
+}
 
   const user = await User.create({
     username: req.body.username,
@@ -42,6 +47,11 @@ userRouter.post("/signup", async (req, res) => {
   });
 
   const userId = user._id;
+
+  await Account.create({
+    userId,
+    balance: 1 + Math.random() * 10000,
+  });
 
   const token = jwt.sign(
     {
@@ -125,13 +135,14 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
 ///// /// GET ANOTHER USER IF EXIST ///  // / / // /
 
 userRouter.get("/bulk", async (req, res) => {
-  const filterUser = req.body.filter || " ";
+  const filterUser = req.body.filter || "";
 
   const users = await mongoSchema.find({
     $or: [
+      //or used to do multiple searches
       {
         firstName: {
-          $regex: filterUser,
+          $regex: filterUser, //regex here is to like-searches like a substring
         },
         lastName: {
           $regex: filterUser,
@@ -141,11 +152,11 @@ userRouter.get("/bulk", async (req, res) => {
   });
 
   res.json({
-    users: users.map((user) =>({
+    users: users.map((user) => ({
       firstName: user.firstName,
-      username : user.username,
-      lastName : user.lastName,
-      _id : user._id
+      username: user.username,
+      lastName: user.lastName,
+      _id: user._id,
     })),
   });
 });
