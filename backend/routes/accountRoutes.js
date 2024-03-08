@@ -1,4 +1,5 @@
 // backend/routes/account.js
+const mongoose = require("mongoose");
 const express = require('express');
 const authMiddleware = require('../middleware');
 const { Account } = require('../dbConfig/mongoDb');
@@ -16,7 +17,8 @@ router.get("/balance", authMiddleware, async (req, res) => {
 });
 
 router.post("/transfer", authMiddleware, async (req, res) => {
-    const session = await mongoose.startSession();
+    try {
+        const session = await mongoose.startSession();
 
     session.startTransaction();
     const { amount, to } = req.body;
@@ -50,6 +52,11 @@ router.post("/transfer", authMiddleware, async (req, res) => {
     res.json({
         message: "Transfer successful"
     });
+    } catch (error) {
+        res.status(411).json({
+            message:"transaction couldn't be made try again "
+        })
+    }
 });
 
 module.exports = router;
