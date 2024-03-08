@@ -1,6 +1,6 @@
 const express = require("express");
 const zod = require("zod");
-const {User, Account}  = require("../dbConfig/mongoDb.js");
+const { User, Account } = require("../dbConfig/mongoDb.js");
 const jwt = require("jsonwebtoken");
 const JWT_Token_SECRET = require("../confiig.js");
 const authMiddleware = require("../middleware.js");
@@ -8,64 +8,67 @@ const authMiddleware = require("../middleware.js");
 const userRouter = express.Router();
 
 const signUpSchema = zod.object({
-  username: zod.string() ,
+  username: zod.string(),
   firstName: zod.string(),
   lastName: zod.string(),
   password: zod.string(),
 });
 
-userRouter.post("/signup", async (req, res) => {
-  const body = req.body;
-  const { success } = signUpSchema.safeParse(body);
+try {
+  userRouter.post("/signup", async (req, res) => {
+    const body = req.body;
+    const { success } = signUpSchema.safeParse(body);
 
-  if (!success) {
-    return res.json({
-      message: "Email allready taken/ Incorrect inputs",
-    });
-  }
+    if (!success) {
+      return res.json({
+        message: "Email allready taken/ Incorrect inputs",
+      });
+    }
 
-  if (!req.body.username) {
-    return res.json({
+    if (!req.body.username) {
+      return res.json({
         message: "Username is required",
+      });
+    }
+    const existingUser = await User.findOne({
+      username: req.body.username,
     });
-}
-  const existingUser = await User.findOne({
-    username: req.body.username,
-  });
 
-  if (existingUser) {
-    return res.status(409).json({
+    if (existingUser) {
+      return res.status(409).json({
         message: "user already exists",
+      });
+    }
+
+    const user = await User.create({
+      username: req.body.username,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      password: req.body.password,
     });
-}
 
-  const user = await User.create({
-    username: req.body.username,
-    firstName: req.body.firstName,
-    lastName: req.body.lastName,
-    password: req.body.password,
-  });
+    const userId = user._id;
 
-  const userId = user._id;
-
-  await Account.create({
-    userId,
-    balance: 1 + Math.random() * 10000,
-  });
-
-  const token = jwt.sign(
-    {
+    await Account.create({
       userId,
-    },
-    JWT_Token_SECRET
-  );
+      balance: 1 + Math.random() * 10000,
+    });
 
-  res.json({
-    message: "user created successfully",
-    token: token,
+    const token = jwt.sign(
+      {
+        userId,
+      },
+      JWT_Token_SECRET
+    );
+
+    res.json({
+      message: "user created successfully",
+      token: token,
+    });
   });
-});
-
+} catch (error) {
+  console.log("SignUP ERR", error);
+}
 //c// // SIGNiN //-- ---- /// /// //
 
 const signInSchema = zod.object({
@@ -73,39 +76,45 @@ const signInSchema = zod.object({
   password: zod.string(),
 });
 
-userRouter.post("/signin", async (req, res) => {
-  const body = req.body;
-  const { success } = signInSchema.safeParse(body);
-
-  if (!success) {
-    res.sendStatus(411).json({
-      message: "wrong credentials",
+try {
+  userRouter.post("/signin", async (req, res) => {
+    const body = req.body;
+    const { success } = signInSchema.safeParse(body);
+  
+    if (!success) {
+      res.send(411).json({
+        message: "wrong credentials",
+      });
+    }
+  
+    const existingUser = await User.findOne({
+      username: req.body.username,
+      password: req.body.password,
     });
-  }
-
-  const existingUser = await User.findOne({
-    username: req.body.username,
-    password: req.body.password,
+    if (existingUser) {
+      const token = jwt.sign(
+        {
+          userId: existingUser._id,
+        },
+        JWT_Token_SECRET
+      );
+  
+      res.json({
+        token: token,
+      });
+      return;
+    } else {
+      res.send(411).json({
+        message: "can't logIn with wrong credentials",
+      });
+    }
   });
-  if (existingUser) {
-    const token = jwt.sign(
-      {
-        userId: existingUser._id,
-      },
-      JWT_Token_SECRET
-    );
-
-    res.json({
-      token: token,
-    });
-    return;
-  } else {
-    res.send(411).json({
-      message: "can't logIn with wrong credentials",
-    });
-  }
-});
-
+  
+} catch (error) {
+  res.status(409).json({
+    message:"please check your credentials",
+  })
+}
 // // //UPDATE---// // // ///
 
 const updateBody = zod.object({
@@ -123,7 +132,7 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
       message: "can't update with wrong credentials",
     });
   }
-  await mongoSchema.updateOne(req.body, {
+  await User.updateOne(req.body, {
     id: req.userId,
   });
 
@@ -135,17 +144,17 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
 ///// /// GET ANOTHER USER IF EXIST ///  // / / // /
 
 userRouter.get("/bulk", async (req, res) => {
-  const filterUser = req.body.filter || "";
+  const filter = req.body.filter || "";
 
-  const users = await mongoSchema.find({
+  const users = await User.find({
     $or: [
       //or used to do multiple searches
       {
         firstName: {
-          $regex: filterUser, //regex here is to like-searches like a substring
+          $regex: filter, //regex here is to like-searches like a substring
         },
         lastName: {
-          $regex: filterUser,
+          $regex: filter,
         },
       },
     ],
